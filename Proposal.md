@@ -45,8 +45,6 @@ In case both HPA and VPA have recommendations to scale, HVPA controller will alw
 
 #### Pros:
 * Works even if HPA and VPA act on different metrices
-* Some applications (e.g. those with caches) will benefit from vertical scaling as compared to horizontal scaling and the net resource consumption with this approach maybe be lower overall (with the same level of performance).
-
 #### Cons:
 * May have more frequent rolling updates. Can it be mitigated by setting user provided thresholds for vertical autoscaling?
 * Does it make sense to give preference to VPA instead of HPA, when vertical scaling may result in rolling updates?
@@ -122,7 +120,6 @@ vpaWeight
 #### Mitigation
 * `x1` and `x2` will be optional, If either or both of them are not provided, vertical scaling will be done until `minAllowed` and/or `maxAllowed` correspondingly.
 * Once replica count reaches `maxReplicas`, and VPA still recommends higher resource requirements, then vertical scaling will be done unconditionally
-* Once replica count reaches `minReplicas`, and VPA still recommends lower resource requirements, then vertical scaling will be done unconditionally
 
 #### Spec
 
@@ -238,13 +235,13 @@ spec:
 resource
 request
 ^
-|       ______
+| .     ______
 |      /
-|     /
+|     /  
 |    /
-|   /
+|   /  
 |  |
-|  |
+|  |  
 |  |
 |
 |--|----|-----|------->
@@ -277,16 +274,71 @@ request
 |
 |           |
 |           |
-|           .
+|           .     
 |          /
 |         /
-|        /
+|        / 
 |       /
-|  ____/
+|  ____/ 
 |
 |--|---|----|------>
    1   3    10     #Replicas
 ```
 
-## Currently preferred approach
-### Weight based scaling
+### Weight based scaling for multiple intervals of replica counts
+Instead of just one interval of `x1` to `x2` as in above approach, user will be able to provide multiple such intervals and corresponding `vpaWeight`s in an array `WeightBasedScaling`.
+
+#### Pros
+* Works even if HPA and VPA act on different metrices
+* Gives better control than previous approaches to user on scaling of apps 
+#### Cons
+* Need to define behavior when:
+    * current number of replicas is `x2`, the deployment has not yet scaled up to `maxAllowed`, and user has chosen to scale only horizontally after `x2`. In this case, the deployment cannot scale up vertically anymore if the load increases.
+    * current number of replicas is `x1`, the deployment has not yet scaled down to `minAllowed`, and user has chosen to scale only horizontally for lower values than `x1`. In this case, the deployment cannot scale down vertically anymore if the load decreases.
+* Will need both VPA and HPA to be deployed in a recommendation-only mode. 
+
+#### Following is the spec:
+
+```golang
+// WeightBasedScalingInterval defines the interval of replica counts in which VpaWeight is applied to VPA scaling
+type WeightBasedScalingInterval struct {
+	// VpaWeight defines the weight to be given to VPA's recommendationd for the interval of number of replicas provided
+	VpaWeight VpaWeight `json:"vpaWeight,omitempty"`
+	// StartReplicaCount is the number of replicas from which VpaWeight is applied to VPA scaling
+	// If this field is not provided, it will default to minReplicas of HPA
+	// +optional
+	StartReplicaCount int `json:"startReplicaCount,omitempty"`
+	// LastReplicaCount is the number of replicas till which VpaWeight is applied to VPA scaling
+	// If this field is not provided, it will default to maxReplicas of HPA
+	// +optional
+	LastReplicaCount int `json:"lastReplicaCount,omitempty"`
+}
+
+// HvpaSpec defines the desired state of Hvpa
+type HvpaSpec struct {
+	// HpaSpec defines the spec of HPA
+	HpaSpec scaling_v1.HorizontalPodAutoscaler `json:"hpaTemplate,omitempty"`
+
+	// VpaSpec defines the spec of VPA
+	VpaSpec vpa_api.VerticalPodAutoscaler `json:"vpaTemplate,omitempty"`
+
+	// WeightBasedScalingIntervals defines the intervals of replica counts, and the weights for scaling a deployment vertically
+	// If there are overlapping intervals, then the vpaWeight will be taken from the first matching interval
+	WeightBasedScalingIntervals []WeightBasedScalingInterval `json:"weightBasedScalingIntervals,omitempty"`
+
+	// TargetRef points to the controller managing the set of pods for the autoscaler to control
+	TargetRef *scaling_v1.CrossVersionObjectReference `json:"targetRef"`
+}
+
+// VpaWeight - weight to provide to VPA scaling
+type VpaWeight float32
+
+const (
+	// VpaOnly - only vertical scaling
+	VpaOnly VpaWeight = 1.0
+	// HpaOnly - only horizontal scaling
+	HpaOnly VpaWeight = 0
+)
+```
+
+## [Currently preferred approach](#Weight-based-scaling-for-multiple-intervals-of-replica-counts)
