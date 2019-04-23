@@ -288,6 +288,14 @@ request
 ### Weight based scaling for multiple intervals of replica counts
 Instead of just one interval of `x1` to `x2` as in above approach, user will be able to provide multiple such intervals and corresponding `vpaWeight`s in an array `WeightBasedScaling`.
 
+User may also provide values for `scaleUpDelay` and/or `scaleDownDelay`. These values will be used to keep check on frequent scaling recommendations. If HPA or VPA recommends higher resources, then these recommendations will be applied only after duration provided in `scaleUpDelay` has passed. Same will be the case for scaling down.
+
+User can also provide thresholds for vertical scaling of CPU and/or memory as either absolute values or percentage of current `requests` value or both. In case, both types of thresholds are provided, minimum of the 2 will be taken. In case none of the thresholds are provided, HVPA will use default values of `200M` for memory and `200m` for CPU.
+
+Providing 2 values helps in cases where `minAllowed` and `maxAllowed` for VPA has a large range. For example, let's say `minAllowed` is `100M` and `maxAllowed` is `4000M` for memory. Here user can mention threshold values - `500M` and `80%`. For smaller range of `requests`, eg. `200M`, a user might want to scale up if the new recommendation is higher than `360M` (+80%). For larger values, eg. `3500M`, VPA threshold value of `500M` might make more sense than 80% of `3500M`, ie, `2800M`.
+
+If only one type of threshold is provided, that is used as is.
+
 #### Pros
 * Works even if HPA and VPA act on different metrices
 * Gives better control than previous approaches to user on scaling of apps 
@@ -297,48 +305,158 @@ Instead of just one interval of `x1` to `x2` as in above approach, user will be 
     * current number of replicas is `x1`, the deployment has not yet scaled down to `minAllowed`, and user has chosen to scale only horizontally for lower values than `x1`. In this case, the deployment cannot scale down vertically anymore if the load decreases.
 * Will need both VPA and HPA to be deployed in a recommendation-only mode. 
 
-#### Following is the spec:
+#### Spec
+[Here](https://github.com/ggaurav10/hvpa-controller/blob/master/pkg/apis/autoscaling/v1alpha1/hvpa_types.go) is the spec for HVPA controller
 
-```golang
-// WeightBasedScalingInterval defines the interval of replica counts in which VpaWeight is applied to VPA scaling
-type WeightBasedScalingInterval struct {
-	// VpaWeight defines the weight to be given to VPA's recommendationd for the interval of number of replicas provided
-	VpaWeight VpaWeight `json:"vpaWeight,omitempty"`
-	// StartReplicaCount is the number of replicas from which VpaWeight is applied to VPA scaling
-	// If this field is not provided, it will default to minReplicas of HPA
-	// +optional
-	StartReplicaCount int `json:"startReplicaCount,omitempty"`
-	// LastReplicaCount is the number of replicas till which VpaWeight is applied to VPA scaling
-	// If this field is not provided, it will default to maxReplicas of HPA
-	// +optional
-	LastReplicaCount int `json:"lastReplicaCount,omitempty"`
-}
+Example 1:
 
-// HvpaSpec defines the desired state of Hvpa
-type HvpaSpec struct {
-	// HpaSpec defines the spec of HPA
-	HpaSpec scaling_v1.HorizontalPodAutoscaler `json:"hpaTemplate,omitempty"`
+```yaml
+apiVersion: autoscaling.k8s.io/v1alpha1
+kind: Hvpa
+metadata:
+  name: hvpa-sample
+spec:
+  scaleUpDelay: "2m"
+  scaleDownDelay: "3m"
+  minCpuChange:
+    value: "200m"
+    percentage: 70
+  minMemChange:
+    value: "200M"
+    percentage: 80
+  hpaTemplate:
+    maxReplicas: 10
+    minReplicas: 1
+    metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 50
+  vpaTemplate:
+    resourcePolicy:
+      containerPolicies:
+      - MinAllowed:
+          memory: 400Mi
+        containerName: resource-consumer
+        maxAllowed:
+          memory: 3000Mi
+  weightBasedScalingIntervals:
+    - vpaWeight: 0
+      startReplicaCount: 1
+      lastReplicaCount: 2
+    - vpaWeight: 0.6
+      startReplicaCount: 3
+      lastReplicaCount: 7
+    - vpaWeight: 0
+      startReplicaCount: 7
+      lastReplicaCount: 10
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: resource-consumer
+```
+```
+resource
+request
+^
+|
+|                  _________
+|                 /|
+|                /
+|               /  |
+|              /
+|  ___________/    |
+|
+|-------------|----|--------|----->
+   1          3    7        10     #Replicas
+```
 
-	// VpaSpec defines the spec of VPA
-	VpaSpec vpa_api.VerticalPodAutoscaler `json:"vpaTemplate,omitempty"`
 
-	// WeightBasedScalingIntervals defines the intervals of replica counts, and the weights for scaling a deployment vertically
-	// If there are overlapping intervals, then the vpaWeight will be taken from the first matching interval
-	WeightBasedScalingIntervals []WeightBasedScalingInterval `json:"weightBasedScalingIntervals,omitempty"`
+Example 2:
+```yaml
+apiVersion: autoscaling.k8s.io/v1alpha1
+kind: Hvpa
+metadata:
+  name: hvpa-sample
+spec:
+  weightBasedScalingIntervals:
+    - vpaWeight: 1
+      startReplicaCount: 1
+      lastReplicaCount: 1
+    - vpaWeight: 0.6
+      startReplicaCount: 2
+      lastReplicaCount: 4
+    - vpaWeight: 0
+      startReplicaCount: 5
+      lastReplicaCount: 10
+  hpaTemplate:
+    .
+    .
+    .
+```
+```
+resource
+request
+^
+|       ______
+|      /
+|     /  
+|    /
+|   /  
+|  |
+|  |  
+|  |
+|
+|--|----|-----|------->
+   1   4       10     #Replicas
+```
 
-	// TargetRef points to the controller managing the set of pods for the autoscaler to control
-	TargetRef *scaling_v1.CrossVersionObjectReference `json:"targetRef"`
-}
 
-// VpaWeight - weight to provide to VPA scaling
-type VpaWeight float32
-
-const (
-	// VpaOnly - only vertical scaling
-	VpaOnly VpaWeight = 1.0
-	// HpaOnly - only horizontal scaling
-	HpaOnly VpaWeight = 0
-)
+Example 3: After maxReplicas, even if weight is not mentioned, there is only vertical scaling because HPA is limited by maxReplicas
+```yaml
+apiVersion: autoscaling.k8s.io/v1alpha1
+kind: Hvpa
+metadata:
+  name: hvpa-sample
+spec:
+  weightBasedScalingIntervals:
+    - vpaWeight: 0
+      startReplicaCount: 1
+      lastReplicaCount: 3
+    - vpaWeight: 0.6
+      startReplicaCount: 4
+      lastReplicaCount: 10
+  hpaTemplate:
+    minReplicas: 1
+    maxReplicas: 10
+    .
+    .
+    .
+```
+```
+resource
+request
+^
+|
+|           |
+|           |
+|           .     
+|          /
+|         /
+|        / 
+|       /
+|  ____/ 
+|
+|--|---|----|------>
+   1   3    10     #Replicas
 ```
 
 ## [Currently preferred approach](#Weight-based-scaling-for-multiple-intervals-of-replica-counts)
