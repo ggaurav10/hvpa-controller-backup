@@ -53,14 +53,6 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - autoscaling.k8s.io
-  resources:
-  - hvpas/status
-  verbs:
-  - get
-  - update
-  - patch
-- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - mutatingwebhookconfigurations
