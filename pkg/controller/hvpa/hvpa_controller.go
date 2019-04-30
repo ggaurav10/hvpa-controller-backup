@@ -1,5 +1,5 @@
 /*
-Copyright 2019 Gaurav Gupta.
+Copyright (c) 2019 SAP SE or an SAP affiliate company. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -183,6 +183,9 @@ func (r *ReconcileHvpa) Reconcile(request reconcile.Request) (reconcile.Result, 
 }
 
 func (r *ReconcileHvpa) reconcileVpa(hvpa *autoscalingv1alpha1.Hvpa) (*vpa_api.VerticalPodAutoscalerStatus, error) {
+	// Updater policy set to "Off", as we don't want vpa-updater to act on recommendations
+	updatePolicy := vpa_api.UpdateModeOff
+
 	vpa := &vpa_api.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hvpa.Name + "-vpa",
@@ -195,6 +198,9 @@ func (r *ReconcileHvpa) reconcileVpa(hvpa *autoscalingv1alpha1.Hvpa) (*vpa_api.V
 				Kind:       hvpa.Spec.TargetRef.Kind,
 			},
 			ResourcePolicy: hvpa.Spec.VpaTemplate.ResourcePolicy.DeepCopy(),
+			UpdatePolicy: &vpa_api.PodUpdatePolicy{
+				UpdateMode: &updatePolicy,
+			},
 		},
 	}
 
