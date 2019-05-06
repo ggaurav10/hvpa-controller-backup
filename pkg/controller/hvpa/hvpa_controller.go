@@ -183,6 +183,9 @@ func (r *ReconcileHvpa) Reconcile(request reconcile.Request) (reconcile.Result, 
 }
 
 func (r *ReconcileHvpa) reconcileVpa(hvpa *autoscalingv1alpha1.Hvpa) (*vpa_api.VerticalPodAutoscalerStatus, error) {
+	// Updater policy set to "Off", as we don't want vpa-updater to act on recommendations
+	updatePolicy := vpa_api.UpdateModeOff
+
 	vpa := &vpa_api.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hvpa.Name + "-vpa",
@@ -195,6 +198,9 @@ func (r *ReconcileHvpa) reconcileVpa(hvpa *autoscalingv1alpha1.Hvpa) (*vpa_api.V
 				Kind:       hvpa.Spec.TargetRef.Kind,
 			},
 			ResourcePolicy: hvpa.Spec.VpaTemplate.ResourcePolicy.DeepCopy(),
+			UpdatePolicy: &vpa_api.PodUpdatePolicy{
+				UpdateMode: &updatePolicy,
+			},
 		},
 	}
 
