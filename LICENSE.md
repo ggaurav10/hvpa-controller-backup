@@ -221,43 +221,43 @@ Your use of these subcomponents is subject to the separate license terms applica
 each subcomponent.
 
 API.
-https://github.com/kubernetes/api/
-Copyright 2017 The Kubernetes Authors.
+https://github.com/kubernetes/api/  
+Copyright 2017 The Kubernetes Authors.  
 Apache 2 license (https://github.com/kubernetes/api/blob/master/LICENSE ).
 
-APIMachinery.
-https://github.com/kubernetes/apimachinery
-Copyright 2017 The Kubernetes Authors.
+APIMachinery.  
+https://github.com/kubernetes/apimachinery  
+Copyright 2017 The Kubernetes Authors.  
 Apache 2 license (https://github.com/kubernetes/apimachinery/blob/master/LICENSE ).
 
-Kubernetes client-go
-https://github.com/kubernetes/client-go/
-Copyright 2018 The Kubernetes Authors
+Kubernetes client-go  
+https://github.com/kubernetes/client-go/  
+Copyright 2018 The Kubernetes Authors  
 Apache 2 license (https://github.com/kubernetes/client-go/blob/master/LICENSE)
 
-Autoscaler.
-https://github.com/kubernetes/autoscaler
-Copyright 2017 The Kubernetes Authors.
+Autoscaler.  
+https://github.com/kubernetes/autoscaler  
+Copyright 2017 The Kubernetes Authors.  
 Apache 2 license (https://github.com/kubernetes/autoscaler/blob/master/LICENSE ).
 
-Code-Generator.
-https://git.k8s.io/code-generator.
-Copyright 2017 The Kubernetes Authors.
+Code-Generator.  
+https://git.k8s.io/code-generator.  
+Copyright 2017 The Kubernetes Authors.  
 Apache 2 license (https://git.k8s.io/code-generator/LICENSE)
 
-controller-runtime
-https://github.com/kubernetes-sigs/controller-runtime
-Copyright 2018 The Kubernetes Authors.
+controller-runtime  
+https://github.com/kubernetes-sigs/controller-runtime  
+Copyright 2018 The Kubernetes Authors.  
 Apache 2 license (https://github.com/kubernetes-sigs/controller-runtime/blob/master/LICENSE).
 
-controller-tools
-https://github.com/kubernetes-sigs/controller-tools
-Copyright 2018 The Kubernetes Authors.
+controller-tools  
+https://github.com/kubernetes-sigs/controller-tools  
+Copyright 2018 The Kubernetes Authors.  
 Apache 2 license (https://github.com/kubernetes-sigs/controller-runtime/blob/master/LICENSE).
 
-Gomega.
-https://github.com/onsi/ginkgo.
-Copyright (c) 2013-2014 Onsi Fakhouri
+Gomega.  
+https://github.com/onsi/gomega.  
+Copyright (c) 2013-2014 Onsi Fakhouri  
 MIT license (https://github.com/onsi/gomega/blob/master/LICENSE)
 
 ------
